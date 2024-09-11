@@ -4,6 +4,7 @@ on:
   workflow_call:
 
 jobs:
+  # Build
   buildForAllSupportedPlatforms:
     name: Build for ${{ matrix.targetPlatform }}
     runs-on: ubuntu-latest
@@ -11,13 +12,13 @@ jobs:
       fail-fast: false
       matrix:
         targetPlatform:
-          # - StandaloneOSX # Build a macOS standalone (Intel 64-bit).
+          - StandaloneOSX # Build a macOS standalone (Intel 64-bit).
           # - StandaloneWindows # Build a Windows standalone.
           - StandaloneWindows64 # Build a Windows 64-bit standalone.
-          # - StandaloneLinux64 # Build a Linux 64-bit standalone.
-          # - iOS # Build an iOS player.
-          # - Android # Build an Android .apk standalone app.
-          # - WebGL # WebGL.
+          - StandaloneLinux64 # Build a Linux 64-bit standalone.
+          - iOS # Build an iOS player.
+          - Android # Build an Android .apk standalone app.
+          - WebGL # WebGL.
     steps:
       # Checkout
       - uses: actions/checkout@v4
@@ -45,8 +46,19 @@ jobs:
         with:
           targetPlatform: ${{ matrix.targetPlatform }}
 
+      # Compress
+      - if: matrix.targetPlatform != 'Android' || matrix.targetPlatform != 'WebGL'
+        name: Compress Directory
+        uses: somaz94/compress-decompress@v1
+        with:
+          command: compress
+          source: build/${{ matrix.targetPlatform }}
+          # dest: 'build'
+          format: zip
+
       # Output
       - uses: actions/upload-artifact@v4
         with:
           name: Build-${{ matrix.targetPlatform }}
-          path: build/${{ matrix.targetPlatform }}
+          path: build/${{ matrix.targetPlatform }}.zip
+      

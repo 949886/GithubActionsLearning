@@ -2,8 +2,8 @@ name: Main
 
 on: 
   push:
-    tags:
-      - "*"
+    # tags:
+    #   - "*"
   pull_request:
     branches:
       - main
