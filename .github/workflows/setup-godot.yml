@@ -1,0 +1,55 @@
+name: 🚥 Status Checks
+on: push
+
+jobs:
+  tests:
+    name: 👀 Evaluate on 
+    runs-on: ubuntu-latest
+    strategy:
+      # Don't cancel other OS runners if one fails.
+      fail-fast: false
+      matrix:
+        platform: [Linux, macOS, Windows]
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+      DOTNET_NOLOGO: true
+    defaults:
+      run:
+        # Use bash shells on all platforms.
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        name: 🧾 Checkout
+
+      - uses: actions/setup-dotnet@v4
+        name: 💽 Setup .NET SDK
+        with:
+          dotnet-version: 8.x
+
+      - name: 📦 Restore Dependencies
+        run: dotnet restore
+
+      - uses: chickensoft-games/setup-godot@v1
+        name: 🤖 Setup Godot
+        with:
+          # Version must include major, minor, and patch, and be >= 4.0.0
+          # Pre-release label is optional.
+          version: 4.2.2 # also valid: 4.0.0.rc1 or 4.0.0, etc
+          # Use .NET-enabled version of Godot (the default is also true).
+          use-dotnet: true
+          # Include the Godot Export Templtes (the default is false).
+          include-templates: true
+
+      - name: 🔬 Verify Setup
+        run: |
+          dotnet --version
+          godot --version
+
+      - name: 🧑‍🔬 Generate .NET Bindings
+        run: godot --headless --build-solutions --quit || exit 0
+
+      - name: 🦺 Build C# Projects
+        run: dotnet build
+        
+      - name: Export godot project
+        run: godot --headless --verbose --export-release "${{ matrix.platform }}" ./build/$EXPORT_NAME.${{ matrix.platform }}
