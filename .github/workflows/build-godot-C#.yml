@@ -1,23 +1,37 @@
 name: 🚥 Build Godot C#
 on: push
 
+env:
+  GODOT_ANDROID_KEYSTORE_RELEASE_PATH: ${{ github.workspace }}/release.keystore 
+  GODOT_ANDROID_KEYSTORE_RELEASE_USER: Unknown
+  GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: 123456
+
 jobs:
   build:
     name: 👀 Evaluate on 
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.platform.system }}
     strategy:
       # Don't cancel other OS runners if one fails.
       fail-fast: false
       matrix:
         platform: 
           - name: Windows
+            system: "ubuntu-latest"
             extension: ".exe"
           - name: macOS
+            system: "macos-latest"
             extension: ".app"
           - name: Linux
+            system: "ubuntu-latest"
             extension: ".x86_64"
           # - name: Web
           #   extension: ".html"
+          - name: Android
+            system: "ubuntu-latest"
+            extension: ".apk"
+          # - name: iOS
+          #   system: "macos-latest"
+          #   extension: ".ipa"
     env:
       DOTNET_CLI_TELEMETRY_OPTOUT: true
       DOTNET_NOLOGO: true
@@ -53,19 +67,40 @@ jobs:
           dotnet --version
           godot --version
 
+      # Setup android
+      - name: Set up JDK 17
+        if: matrix.platform.name == 'Android'
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Android SDK
+        if: matrix.platform.name == 'Android'
+        uses: android-actions/setup-android@v3
+
+      - name: Generate Keystore
+        if: matrix.platform.name == 'Android'
+        run: |
+          if [ ! -f $GODOT_ANDROID_KEYSTORE_RELEASE_PATH ]; then
+            keytool -genkey -v -keystore release.keystore -alias $GODOT_ANDROID_KEYSTORE_RELEASE_USER -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass $GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD -keypass $GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD -dname "CN=Unknown, OU=Unknown, O=Unknown, L=Unknown, S=Unknown, C=Unknown"
+          fi
+          env
+
+      # Build the project for each platform
       - name: 🛠️ Build Godot Solutions
         run: godot --headless --build-solutions --quit || exit 0
 
       - name: 🛠️ Build C# Projects
         run: dotnet build
         
-      # Export the project for each platform
       - name: 🚀 Export Project
         run: |
           mkdir -v -p build
           godot --headless --verbose --export-release "${{ matrix.platform.name }}" ./build/${{ github.event.repository.name }}${{ matrix.platform.extension }}
 
-      # Compress the build files for each platform
+      # Compress the build files and upload them as an artifact
       - name: 🗜️ Compress
         run: |
           cd build
